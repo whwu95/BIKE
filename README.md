@@ -5,7 +5,7 @@ This is the official implementation of the paper [Cross-Modal Knowledge Explorat
 Code will be available. Stay tuned.
 
 ## 📣 Updates
-- [x] **[Feb 19, 2023]** 🎉Our **BIKE** has been accepted by **CVPR-2023**.
+- [x] **[Feb 28, 2023]** 🎉Our **BIKE** has been accepted by **CVPR-2023**.
 - [x] **[Dec 31, 2022]** 💡Our [initial Arxiv paper](https://arxiv.org/abs/2301.00182) is released.
 
 
