@@ -11,7 +11,7 @@ data:
     num_classes: 400
     image_tmpl: 'img_{:05d}.jpg'
     train_root: '/bpfs/v2_mnt/VIS/test/k400/train_320_frames'
-    train_list: 'lists/k400/kinetics_rgb_train_se320.txt'
+    train_list: 'lists/k400/kinetics_rgb_train_se320.txt' 
     val_root: /bpfs/v2_mnt/VIS/test/k400/kinetics_400_val_320_opencv
     val_list: lists/k400/kinetics_rgb_val_se320.txt
     label_list: 'lists/k400/kinetics_400_labels.csv'
@@ -23,14 +23,13 @@ network:
     init: True
     tm: False
     drop_out: 0.0 
-    emb_dropout: 0.0 
-    type: clip_k400
-    sim_header: Transf  # Transf   None  
+    emb_dropout: 0.0
+    sim_header: Transf  # Transf   None
     interaction: VCS  # DP VCS
     joint_st: False
     drop: 0      
-    fix_text: True  
-    fix_video: False        
+    fix_text: True
+    fix_video: False
 solver:
     type: cosine
     epochs: 30

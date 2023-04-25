@@ -10,12 +10,12 @@ import torch.backends.cudnn as cudnn
 import torchvision
 import torch.nn.functional as F
 import time
-from utils.utils import init_distributed_mode, AverageMeter, reduce_tensor, accuracy
+from utils.utils import init_distributed_mode, AverageMeter, reduce_tensor, accuracy, gather_labels
 import clip
 
 import yaml
 from dotmap import DotMap
-from datasets.video import Video_dataset
+from datasets.charades import Video_dataset
 from datasets.transforms import GroupScale, GroupCenterCrop, Stack, ToTorchFormatTensor, GroupNormalize, GroupOverSample, GroupFullResSample
 from modules.video_clip import video_header
 from modules.text_prompt import text_prompt
@@ -43,6 +43,27 @@ def get_parser():
                     help='use dense sample for test as in Non-local I3D')
     args = parser.parse_args()
     return args
+
+class AllGather(torch.autograd.Function):
+    """An autograd function that performs allgather on a tensor."""
+
+    @staticmethod
+    def forward(ctx, tensor):
+        output = [torch.empty_like(tensor) for _ in range(dist.get_world_size())]
+        torch.distributed.all_gather(output, tensor)
+        ctx.rank = dist.get_rank()
+        ctx.batch_size = tensor.shape[0]
+        return torch.cat(output, dim=0)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        return (
+            grad_output[ctx.batch_size * ctx.rank : ctx.batch_size * (ctx.rank + 1)],
+            None,
+        )
+
+allgather = AllGather.apply
+
 
 def update_dict(dict):
     new_dict = {}
@@ -164,25 +185,25 @@ def main(args):
     classes = text_prompt(val_data)
     n_class = classes.size(0)
 
-    prec1 = validate(
+    mAP = validate(
         val_loader, classes, device,
         model, video_head, config, n_class, args.test_crops, args.test_clips)
     return
 
 
 def validate(val_loader, classes, device, model, video_head, config, n_class, test_crops, test_clips):
-    top1 = AverageMeter()
-    top5 = AverageMeter()
+    mAP = AverageMeter()
     model.eval()
     video_head.eval()
     proc_start_time = time.time()
-    sim_logits = []   
-    labels = []   
+    from torchnet import meter
+    maper = meter.mAPMeter()
+
     with torch.no_grad():
         text_inputs = classes.to(device)
         cls_feature, text_features = model.module.encode_text(text_inputs, return_token=True)
         for i, (image, class_id) in enumerate(val_loader):
-            batch_size = class_id.numel()
+            batch_size = class_id.size(0)
             num_crop = test_crops
 
             num_crop *= test_clips  # 4 clips for testing when using dense sample
@@ -201,57 +222,25 @@ def validate(val_loader, classes, device, model, video_head, config, n_class, te
             similarity = similarity.view(batch_size, -1, n_class).softmax(dim=-1)
             similarity = similarity.mean(dim=1, keepdim=False)
 
-            if 'anet' in config.data.dataset:
-                ########## for saving 
-                sim_logits.append(concat_all_gather(similarity))
-                labels.append(concat_all_gather(class_id))
-                ##########
+            output = allgather(similarity)
+            labels = gather_labels(class_id)            
 
-            prec = accuracy(similarity, class_id, topk=(1, 5))
-            prec1 = reduce_tensor(prec[0])
-            prec5 = reduce_tensor(prec[1])
-
-            top1.update(prec1.item(), class_id.size(0))
-            top5.update(prec5.item(), class_id.size(0))
+            maper.add(output, labels)
+            mAP.update(maper.value().numpy(),labels.size(0))
 
             if i % config.logging.print_freq == 0 and dist.get_rank() == 0:
                 runtime = float(cnt_time) / (i+1) / (batch_size * dist.get_world_size())
                 print(
                     ('Test: [{0}/{1}], average {runtime:.4f} sec/video \t'
-                     'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                     'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                       i, len(val_loader), runtime=runtime, top1=top1, top5=top5)))
+                     'mAP:{map:.3f}\t'.format(
+                         i, len(val_loader), runtime=runtime, map=mAP.avg * 100)))
 
     if dist.get_rank() == 0:
         print('-----Evaluation is finished------')
-        print('Overall Prec@1 {:.03f}% Prec@5 {:.03f}%'.format(top1.avg, top5.avg))
+        print('Overall mAP {mAP_result:.3f}%'.format(mAP_result=mAP.avg * 100))    
+    return mAP.avg * 100
 
-    if 'anet' in config.data.dataset:
-        sim, gt = sim_logits[0], labels[0]
-        for i in range(1, len(sim_logits)): 
-            sim = torch.cat((sim, sim_logits[i]), 0)
-            gt = torch.cat((gt, labels[i]), 0)
 
-        if dist.get_rank() == 0:
-            from utils.utils import mean_average_precision
-            mAP = mean_average_precision(sim, gt)
-            print('Overall mAP: {:.03f}%'.format(mAP[1].item()))
-
-    return top1.avg
-
-# utils
-@torch.no_grad()
-def concat_all_gather(tensor):
-    """
-    Performs all_gather operation on the provided tensors.
-    *** Warning ***: torch.distributed.all_gather has no gradient.
-    """
-    tensors_gather = [torch.ones_like(tensor)
-        for _ in range(torch.distributed.get_world_size())]
-    torch.distributed.all_gather(tensors_gather, tensor, async_op=False)
-
-    output = torch.cat(tensors_gather, dim=0)
-    return output.cpu()
 
 
 if __name__ == '__main__':

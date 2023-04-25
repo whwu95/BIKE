@@ -23,8 +23,7 @@ network:
     init: True
     tm: False
     drop_out: 0.0 
-    emb_dropout: 0.0 
-    type: clip_k400
+    emb_dropout: 0.0
     sim_header: Transf  # Transf   None  
     interaction: VCS  # DP VCS
     joint_st: False

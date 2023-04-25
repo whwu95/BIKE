@@ -6,7 +6,7 @@ data:
     modality: RGB
     num_segments: 8
     seg_length: 1
-    batch_size: 16
+    batch_size: 32
     workers: 4
     num_classes: 400
     image_tmpl: 'img_{:05d}.jpg'
@@ -15,19 +15,20 @@ data:
     val_root: /bpfs/v2_mnt/VIS/test/k400/kinetics_400_val_320_opencv
     val_list: lists/k400/kinetics_rgb_val_se320.txt
     label_list: 'lists/k400/kinetics_400_labels.csv'
-    input_size: 336
+    input_size: 224
     random_shift: True
-    output_path: exps
+    output_path: exps_few
+    shot: 2
 network:
-    arch: ViT-L/14-336px  #ViT-B/32 ViT-B/16
+    arch: ViT-L/14  #ViT-B/32 ViT-B/16
     init: True
     tm: False
     drop_out: 0.0 
     emb_dropout: 0.0
-    sim_header: Transf  # Transf   None  
+    sim_header: None  
     interaction: VCS  # DP VCS
     joint_st: False
-    drop: 0      
+    drop: 0    
     fix_text: True  
     fix_video: False        
 solver:

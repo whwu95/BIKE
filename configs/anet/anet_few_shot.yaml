@@ -2,39 +2,39 @@ resume:
 pretrain:
 seed: 1024
 data:
-    dataset: k400
+    dataset: anet
     modality: RGB
-    num_segments: 16
+    num_segments: 8
     seg_length: 1
     batch_size: 32
     workers: 4
-    num_classes: 400
-    image_tmpl: 'img_{:05d}.jpg'
-    train_root: '/bpfs/v2_mnt/VIS/test/k400/train_320_frames'
-    train_list: 'lists/k400/kinetics_rgb_train_se320.txt'
-    val_root: /bpfs/v2_mnt/VIS/test/k400/kinetics_400_val_320_opencv
-    val_list: lists/k400/kinetics_rgb_val_se320.txt
-    label_list: 'lists/k400/kinetics_400_labels.csv'
+    num_classes: 200
+    image_tmpl: 'image_{:06d}.jpg'
+    train_root: '/bpfs/v2_mnt/VIS/wuwenhao/anet/anet_instance_frames_v1.3_train_vids_fps1'
+    val_root: '/bpfs/v2_mnt/VIS/wuwenhao/anet/activitynet_val_resize_img_256_340_fps1'    
+    train_list: 'lists/anet/anet_train_instance_fps1.txt'
+    val_list: 'lists/anet/anet_val_video_fps1.txt' #
+    label_list: 'lists/anet/anet1.3_labels.csv'
     input_size: 224
     random_shift: True
-    output_path: exps
+    output_path: exps_few
+    shot: 2
 network:
     arch: ViT-L/14  #ViT-B/32 ViT-B/16
     init: True
     tm: False
     drop_out: 0.0 
     emb_dropout: 0.0
-    sim_header: Transf  # Transf   None  
-    interaction: VCS  # DP VCS
+    sim_header: None
+    interaction: VCS
     joint_st: False
     drop: 0      
     fix_text: True  
-    fix_video: False        
+    fix_video: False 
 solver:
     type: cosine
     epochs: 20
     start_epoch: 0
-    epoch_offset: 0
     optim: adamw
     lr: 5.e-5
     lr_warmup_step: 5
@@ -45,4 +45,4 @@ solver:
     grad_accumulation_steps: 1
 logging:
     print_freq: 10
-    eval_freq: 1
+    eval_freq: 5

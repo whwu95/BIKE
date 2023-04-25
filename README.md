@@ -8,7 +8,7 @@
 
 <!-- <h3><a href="https://arxiv.org/abs/2301.00182">Bidirectional Cross-Modal Knowledge Exploration for Video Recognition with Pre-trained Vision-Language Models</a></h3> -->
 
-[Wenhao Wu](https://whwu95.github.io/)<sup>1,2</sup>, [Xiaohan Wang](https://scholar.google.com/citations?user=iGA10XoAAAAJ&hl=en)<sup>3</sup>, [Haipeng Luo]()<sup>4</sup>, [Jingdong Wang](https://jingdongwang2017.github.io/)<sup>2</sup>, [Yi Yang](https://scholar.google.com/citations?user=RMSuNFwAAAAJ&hl=en)<sup>3</sup>, [Wanli Ouyang](https://wlouyang.github.io/)<sup>4,1</sup>
+[Wenhao Wu](https://whwu95.github.io/)<sup>1,2</sup>, [Xiaohan Wang](https://scholar.google.com/citations?user=iGA10XoAAAAJ&hl=en)<sup>3</sup>, [Haipeng Luo]()<sup>4</sup>, [Jingdong Wang](https://jingdongwang2017.github.io/)<sup>2</sup>, [Yi Yang](https://scholar.google.com/citations?user=RMSuNFwAAAAJ&hl=en)<sup>3</sup>, [Wanli Ouyang](https://wlouyang.github.io/)<sup>5,1</sup>
 
  
 <sup>1</sup>[The University of Sydney](https://www.sydney.edu.au/), <sup>2</sup>[Baidu](https://vis.baidu.com/#/), <sup>3</sup>[ZJU](https://www.zju.edu.cn/english/), <sup>4</sup>[UCAS](https://english.ucas.ac.cn/), <sup>5</sup>[Shanghai AI Lab](https://www.shlab.org.cn/)
@@ -17,7 +17,7 @@
 
 </div>
 
-
+***
 
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/bidirectional-cross-modal-knowledge/action-recognition-in-videos-on-ucf101)](https://paperswithcode.com/sota/action-recognition-in-videos-on-ucf101?p=bidirectional-cross-modal-knowledge)
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/bidirectional-cross-modal-knowledge/action-recognition-in-videos-on-activitynet)](https://paperswithcode.com/sota/action-recognition-in-videos-on-activitynet?p=bidirectional-cross-modal-knowledge)
@@ -30,10 +30,12 @@
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/bidirectional-cross-modal-knowledge/zero-shot-action-recognition-on-activitynet)](https://paperswithcode.com/sota/zero-shot-action-recognition-on-activitynet?p=bidirectional-cross-modal-knowledge)
 
 
+
+
 This is the official implementation of our 🚴 **BIKE** (BIdirectional Knowledge Exploration), which leverages cross-modal bridge to enhance video recognition by exploring bidirectional knowledge.
 
 
-<details><summary>📣 I also have other cross-modal video projects that may interest you ✨. </summary><p>
+<details open><summary>📣 I also have other cross-modal video projects that may interest you ✨. </summary><p>
 
 
 > [**Revisiting Classifier: Transferring Vision-Language Models for Video Recognition**](https://arxiv.org/abs/2207.01297)<br>
@@ -48,7 +50,7 @@ This is the official implementation of our 🚴 **BIKE** (BIdirectional Knowledg
 </p></details>
 
 ## News
--  🚀 **Efficient Training**: Almost all models can be trained using **8 NVIDIA 32G V100 GPUs**. Especially, we can train ViT-L/14 (336) backbone using **8 GPUs** and achieve **88.3%** Top-1 accuracy on Kinetics-400 dataset!
+-  🚀 **Efficient Training**: Almost all models can be trained using **8 NVIDIA V100 GPUs**. Especially, we can train ViT-L/14 (336) backbone using **8 GPUs** and achieve **88.3%** Top-1 accuracy on Kinetics-400 dataset!
 -  `Apr 20, 2023`: Main training codes have been released, including single-node/multi-node multi-GPU distributed training. Thanks for your star 😝.
 -  `Feb 28, 2023`: 🎉Our **BIKE** has been accepted by **CVPR-2023**.
 
@@ -93,7 +95,7 @@ This is the official implementation of our 🚴 **BIKE** (BIdirectional Knowledg
 
 **(Recommend)** To train all of our models, we extract videos into frames for fast reading. Please refer to [MVFNet](https://github.com/whwu95/MVFNet/blob/main/data_process/DATASETS.md) repo for the detaied guide of dataset processing.  
 The annotation file is a text file with multiple lines, and each line indicates the directory to frames of a video, total frames of the video and the label of a video, which are split with a whitespace. 
-<details><summary>Example of annotation</summary>
+<details open><summary>Example of annotation</summary>
 
 ```sh
 abseiling/-7kbO0v4hag_000107_000117 300 0
@@ -122,48 +124,64 @@ Annotation information consists of two parts: video label, and category descript
 <a name="model-zoo"></a>
 ## 📱 Model Zoo
 
-Here we provide some off-the-shelf pre-trained checkpoints of our models in the following tables.
+- Firstly, we provide some GPU memory usage results during model training for your reference. 
+- Then we provide some off-the-shelf pre-trained checkpoints of our models in the following tables.
+  - *# Inference Views = # Temporal clips x # Spatial crops*
 
-- *# Inference Views = # Temporal clips x # Spatial crops*
+
+### Training GPU Memory
+
+During our training, we maintain a total batch size of 256. 
+If your machine's GPU memory is not enough, you can reduce the batch size to reduce the memory usage. It is best to correspondingly increase the value of "grad_accumulation_steps" in the config file.
+
+Architecture | Input | Batch Size (per GPU) x 8GPUs  | Mem. (per GPU) |
+:-: | :-: | :-: | :-: 
+ViT-B/32 | 8x224<sup>2</sup> | 32 x 8 = 256 | 6G | 
+ViT-B/16 | 8x224<sup>2</sup> | 32 x 8 = 256 | 9G | 
+ViT-L/14 | 8x224<sup>2</sup> | 32 x 8 = 256 | 18G | 
+ViT-L/14 | 16x224<sup>2</sup> | 32 x 8 = 256 | 29G |
+
 ### Kinetics-400
 
 | Architecture | Input | Views | Top-1(%) | checkpoint | Train log| config| 
 |:------------:|:-------------------:|:------------------:|:-----------------:|:--------------:|:--------------:|:--------------:|
-| ViT-B/32 | 8x224<sup>2</sup> | 4x3 |80.5 | [Github](https://github.com/whwu95/Text4Vis/releases/download/v1/k400-vitb-32-f16.pt) | [log](exps/k400/ViT-B/32/f16/log.txt)  | [config](configs/k400/k400_train_rgb_vitb-32-f16.yaml) |
-| ViT-B/16 | 8x224<sup>2</sup> | 4x3  | 84.0 | [Github]() | [log](exps/k400/ViT-B/16/f8/log.txt) | [config](configs/k400/k400_train_rgb_vitb-16-f8.yaml) |
-| ViT-L/14* | 8x224<sup>2</sup> | 4x3| 87.4 | [OneDrive]() | [log](exps/k400/ViT-L/14/f8/log.txt) | [config](configs/k400/k400_train_rgb_vitl-14-f8.yaml) | 
-| ViT-L/14 | 16x224<sup>2</sup> | 4x3| 88.1| [OneDrive]() | [log](exps/k400/ViT-L/14/f16/log.txt) | [config](configs/k400/k400_train_rgb_vitl-14-f16.yaml) | 
-| ViT-L/14 | 8x336<sup>2</sup> | 4x3  | 88.3 | [OneDrive]()  | [log](exps/k400/ViT-L/14-336px/f8/log.txt) | [config](configs/k400/k400_train_rgb_vitl-14-336-f8.yaml) |
-| ViT-L/14 | 16x336<sup>2</sup> | 4x3  | 88.7 | [OneDrive]()  | [log](exps/k400/ViT-L/14-336px/f16/log.txt) | [config](configs/k400/k400_train_rgb_vitl-14-336-f16.yaml) |
-<!-- | ViT-L/14 | 32x336<sup>2</sup> | 4x3  | xx.x | [OneDrive]() | [log](exps/k400/ViT-L/14-336px/f32/log.txt) | [config](configs/k400/k400_train_rgb_vitl-14-336-f32.yaml) | -->
+| ViT-B/32 <sup>V+A</sup>  | 8x224<sup>2</sup> | 1x1 | 81.4| [Score]() | [log]() | [config](configs/k400/k400_train_video_attr_vitb-32-f8.yaml) |
+| ViT-B/16 | 8x224<sup>2</sup> | 4x3  | 84.0 | [Github]() | [log]() | [config](configs/k400/k400_train_rgb_vitb-16-f8.yaml) |
+| ViT-L/14* | 8x224<sup>2</sup> | 4x3| 87.4 | [OneDrive]() | [log](exps/k400/ViT-L/14/8f/log.txt) | [config](configs/k400/k400_train_rgb_vitl-14-f8.yaml) | 
+| ViT-L/14 | 16x224<sup>2</sup> | 4x3| 88.1| [OneDrive]() | [log](exps/k400/ViT-L/14/16f/log.txt) | [config](configs/k400/k400_train_rgb_vitl-14-f16.yaml) | 
+| ViT-L/14 | 8x336<sup>2</sup> | 4x3  | 88.3 | [OneDrive]()  | [log](exps/k400/ViT-L/14-336px/8f/log.txt) | [config](configs/k400/k400_train_rgb_vitl-14-336-f8.yaml) |
+| ViT-L/14 | 16x336<sup>2</sup> | 4x3  | 88.7 | [OneDrive]()  | [log](exps/k400/ViT-L/14-336px/16f/log.txt) | [config](configs/k400/k400_train_rgb_vitl-14-336-f16.yaml) |
+<!-- | ViT-L/14 | 32x336<sup>2</sup> | 4x3  | xx.x | [OneDrive]() | [log](exps/k400/ViT-L/14-336px/32f/log.txt) | [config](configs/k400/k400_train_rgb_vitl-14-336-f32.yaml) | -->
 
-*Note: * indicates that in the paper, a ViT-L model with 8 frames was used for zero-shot evaluation on UCF, HMDB, ActivityNet, and Kinetics-600.*
+- The V+A represents a model that includes both the video and attributes branches. If not specified, our other provided models default to the video branch model.
+- The * indicates that in the paper, a ViT-L model with 8 frames was used for zero-shot evaluation on UCF, HMDB, ActivityNet, and Kinetics-600.
+
 
 ### Untrimmed Video Recognition: ActivityNet
 | Architecture | Input | Views | Top-1 (%) |  mAP (%) | checkpoint | Train log| config|
 |:------------:|:-------------------:|:------------------:|:-----------------:|:--------------:|:--------------:|:--------------:|:--------------:|
 | ViT-L/14 | 16x224<sup>2</sup> | 4x1| 94.4 | 96.3| [OneDrive]() | [log](exps/anet/ViT-L/14/f16/log.txt) | [config](configs/anet/anet_k400_finetune.yaml) |
-| ViT-L/14 | 16x336<sup>2</sup> | 4x1| 94.7 | 96.3 | [OneDrive]() | [log](exps/anet/ViT-L/14-336px/f16/log.txt) | [config](configs/anet/anet_k400_finetune_336.yaml) |
+| ViT-L/14 | 16x336<sup>2</sup> | 4x1| 94.7 | 96.1 | [OneDrive]() | [log](exps/anet/ViT-L/14-336px/f16/log.txt) | [config](configs/anet/anet_k400_finetune_336.yaml) |
 
 
 ### Multi-label Action Recognition: Charades
 | Architecture | Input | Views |  mAP (%) | checkpoint | Train log| config|
 |:------------:|:-------------------:|:------------------:|:-----------------:|:--------------:|:--------------:|:--------------:|
-| ViT-L/14 | 16x336<sup>2</sup> | 4x1| 50.4  | [OneDrive]() | [log](exp_nce/charades/ViT-L/14-336px/16f/log.txt) | [config](configs/charades/charades_k400_finetune_336.yaml) |
+| ViT-L/14 | 16x336<sup>2</sup> | 4x1| 50.7  | [OneDrive]() | [log](exps/charades/ViT-L/14-336px/16f/log.txt) | [config](configs/charades/charades_k400_finetune_336.yaml) |
 
 
 
 ### UCF-101
 | Architecture | Input | Views |  Top-1 (%) | checkpoint | Train log| config|
 |:------------:|:-------------------:|:------------------:|:-----------------:|:--------------:|:--------------:|:--------------:|
-| ViT-L/14 | 16x224<sup>2</sup> | 1x1 | 98.8 | [OneDrive]() | [log](exps/ucf101/ViT-L/14/f16/log.txt) | [config](configs/ucf101/ucf_k400_finetune.yaml) |
-| ViT-L/14 | 16x336<sup>2</sup> | 1x1 | 98.6 | [OneDrive]()| [log](exps/ucf101/ViT-L/14-336px/f16/log.txt) | [config](configs/ucf101/ucf_k400_finetune_336.yaml) |
+| ViT-L/14 | 16x224<sup>2</sup> | 1x1 | 98.7 | [OneDrive]() | [log](exps/ucf101/ViT-L/14/f16/log.txt) | [config](configs/ucf101/ucf_k400_finetune.yaml) |
+| ViT-L/14 | 16x336<sup>2</sup> | 1x1 | 98.9 | [OneDrive]()| [log](exps/ucf101/ViT-L/14-336px/f16/log.txt) | [config](configs/ucf101/ucf_k400_finetune_336.yaml) |
 
 ### HMDB-51
 | Architecture | Input | Views |  Top-1 (%) | checkpoint | Train log| config|
 |:------------:|:-------------------:|:------------------:|:-----------------:|:--------------:|:--------------:|:--------------:|
-| ViT-L/14 | 16x224<sup>2</sup> | 1x1 | 82.2 | [OneDrive]() | [log](exps/hmdb51/ViT-L/14/f16/log.txt) | [config](configs/hmdb51/hmdb_k400_finetune.yaml) |
-| ViT-L/14 | 16x336<sup>2</sup> | 1x1 | 83.1 | [OneDrive]()| [log](exps/hmdb51/ViT-L/14-336px/f16/log.txt) | [config](configs/hmdb51/hmdb_k400_finetune_336.yaml) |
+| ViT-L/14 | 16x224<sup>2</sup> | 1x1 | 82.9 | [OneDrive]() | [log](exps/hmdb51/ViT-L/14/f16/log.txt) | [config](configs/hmdb51/hmdb_k400_finetune.yaml) |
+| ViT-L/14 | 16x336<sup>2</sup> | 1x1 | 84.3 | [OneDrive]()| [log](exps/hmdb51/ViT-L/14-336px/f16/log.txt) | [config](configs/hmdb51/hmdb_k400_finetune_336.yaml) |
 
 
 
@@ -174,11 +192,11 @@ This implementation supports Multi-GPU `DistributedDataParallel` training, which
 
 1. **Single Machine**: To train our model on Kinetics-400 with 8 GPUs in *Single Machine*, you can run:
 ```sh
-# For example, we train the 8 Frames ViT-B/32 video model (i.e., video branch).
+# We train the 8 Frames ViT-B/32 video model (i.e., video branch).
 sh scripts/run_train.sh  configs/k400/k400_train_rgb_vitb-32-f8.yaml
 
-# We train the attributes branch.
-sh scripts/run_train_attributes.sh  configs/k400/k400_train_rgb_vitb-32-f8.yaml
+# We train the video branch and attributes branch.
+sh scripts/run_co_train.sh  configs/k400/k400_train_video_attr_vitb-32-f8.yaml
 ```
 
 <details><summary>2. Mulitple Machines: We also provide the script to train larger model with Mulitple Machines (e.g., 2 nodes have 16 GPUs).</summary>
@@ -220,7 +238,7 @@ sh scripts/run_test_zeroshot.sh Your-Config.yaml Your-Trained-Model.pt
 We provide more examples of testing commands below.
 
 
-<details><summary>General / Few-shot Video Recognition</summary>
+<details open><summary>General / Few-shot Video Recognition</summary>
 
 ```sh
 # Efficient Setting: Single view evaluation. 
@@ -235,7 +253,7 @@ sh scripts/run_test.sh  configs/k400/k400_train_rgb_vitl-14-f8.yaml exps/k400/Vi
 sh scripts/run_test_charades.sh configs/charades/charades_k400_finetune_336.yaml exps/charades/ViT-L/14-336px/16f/model_best.pt --test_crops 1  --test_clips 4
 
 # Test the ActivityNet dataset using top1 and mAP metric. You should achieve around 96.1 mAP.
-sh scripts/run_test_anet.sh configs/anet/anet_k400_finetune_336.yaml exps/anet/ViT-L/14-336px/16f/model_best.pt
+sh scripts/run_test.sh configs/anet/anet_k400_finetune_336.yaml exps/anet/ViT-L/14-336px/16f/model_best.pt --test_crops 1  --test_clips 4
 ```
 </details>
 
@@ -267,16 +285,16 @@ sh scripts/run_test_zeroshot.sh  configs/hmdb51/hmdb_zero_shot.yaml exps/k400/Vi
 # On Kinetics-600: manually calculating the mean accuracy with standard deviation of three splits.
 # Split1: 70.14, Split2: 68.31, Split3: 67.15
 # Average: 68.53 ± 1.23
-sh scripts/run_test.sh  configs/k600/k600_zero_shot_split1.yaml exp/k400s/ViT-L/14/f8/last_model.pt
-sh scripts/run_test.sh  configs/k600/k600_zero_shot_split2.yaml exp/k400s/ViT-L/14/f8/last_model.pt
-sh scripts/run_test.sh  configs/k600/k600_zero_shot_split3.yaml exp/k400s/ViT-L/14/f8/last_model.pt
+sh scripts/run_test.sh  configs/k600/k600_zero_shot_split1.yaml exp/k400/ViT-L/14/f8/last_model.pt
+sh scripts/run_test.sh  configs/k600/k600_zero_shot_split2.yaml exp/k400/ViT-L/14/f8/last_model.pt
+sh scripts/run_test.sh  configs/k600/k600_zero_shot_split3.yaml exp/k400/ViT-L/14/f8/last_model.pt
 ```
 </details>
 
 <a name="bibtex"></a>
 ## 📌 BibTeX & Citation
 
-If you use our code in your research or wish to refer to the baseline results, please use the following BibTeX entry.
+If you use our code in your research or wish to refer to the baseline results, please use the following BibTeX entry😁.
 
 
 ```bibtex
@@ -284,6 +302,17 @@ If you use our code in your research or wish to refer to the baseline results, p
   title={Bidirectional Cross-Modal Knowledge Exploration for Video Recognition with Pre-trained Vision-Language Models},
   author={Wu, Wenhao and Wang, Xiaohan and Luo, Haipeng and Wang, Jingdong and Yang, Yi and Ouyang, Wanli},
   booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
+  year={2023}
+}
+```
+
+If you also find [Text4Vis](https://github.com/whwu95/Text4Vis) useful 😁, please cite the paper:
+
+```bibtex
+@article{wu2023revisiting,
+  title={Revisiting Classifier: Transferring Vision-Language Models for Video Recognition},
+  author={Wu, Wenhao and Sun, Zhun and Ouyang, Wanli},
+  booktitle={Proceedings of AAAI Conference on Artificial Intelligence (AAAI)},
   year={2023}
 }
 ```

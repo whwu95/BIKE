@@ -39,7 +39,7 @@ class Video_dataset(data.Dataset):
                  index_bias=1, dense_sample=False, test_clips=3,
                  num_sample=1,
                  select_topk_attributes=5,
-                 generate_attributes_path=None,
+                 attributes_path=None,
                  train_video=True):
 
         self.root_path = root_path
@@ -60,13 +60,13 @@ class Video_dataset(data.Dataset):
         self.num_sample = num_sample
 
         self.max_words = 77
-        self.generate_attributes_path = generate_attributes_path
+        self.attributes_path = attributes_path
         self.tokenizer = ClipTokenizer()
         self.train_video = train_video
         self.SPECIAL_TOKEN = {"CLS_TOKEN": "<|startoftext|>", "SEP_TOKEN": "<|endoftext|>",
                               "MASK_TOKEN": "[MASK]", "UNK_TOKEN": "[UNK]", "PAD_TOKEN": "[PAD]"}
-        if self.generate_attributes_path != None:
-            self.generate_attributes_split_data = json.load(open(self.generate_attributes_path, 'r'))
+        if self.attributes_path != None:
+            self.generate_attributes_split_data = json.load(open(self.attributes_path, 'r'))
         self.select_topk_attributes = select_topk_attributes
 
         if self.dense_sample:

@@ -12,6 +12,7 @@ import torch.nn.functional as F
 import time
 from utils.utils import init_distributed_mode, AverageMeter, reduce_tensor, accuracy
 import clip
+import numpy as np
 
 import yaml
 from dotmap import DotMap
@@ -176,8 +177,11 @@ def validate(val_loader, classes, device, model, video_head, config, n_class, te
     model.eval()
     video_head.eval()
     proc_start_time = time.time()
-    sim_logits = []   
-    labels = []   
+
+    sim_logits = []     # 
+    labels = []     # 
+    i_features = []
+
     with torch.no_grad():
         text_inputs = classes.to(device)
         cls_feature, text_features = model.module.encode_text(text_inputs, return_token=True)
@@ -201,11 +205,12 @@ def validate(val_loader, classes, device, model, video_head, config, n_class, te
             similarity = similarity.view(batch_size, -1, n_class).softmax(dim=-1)
             similarity = similarity.mean(dim=1, keepdim=False)
 
-            if 'anet' in config.data.dataset:
-                ########## for saving 
-                sim_logits.append(concat_all_gather(similarity))
-                labels.append(concat_all_gather(class_id))
-                ##########
+            ########## gathering 
+            i_features.append(concat_all_gather(image_features))
+            sim_logits.append(concat_all_gather(similarity))
+            labels.append(concat_all_gather(class_id))
+            ##########
+
 
             prec = accuracy(similarity, class_id, topk=(1, 5))
             prec1 = reduce_tensor(prec[0])
@@ -223,21 +228,23 @@ def validate(val_loader, classes, device, model, video_head, config, n_class, te
                        i, len(val_loader), runtime=runtime, top1=top1, top5=top5)))
 
     if dist.get_rank() == 0:
-        print('-----Evaluation is finished------')
-        print('Overall Prec@1 {:.03f}% Prec@5 {:.03f}%'.format(top1.avg, top5.avg))
-
-    if 'anet' in config.data.dataset:
-        sim, gt = sim_logits[0], labels[0]
+        ## half-classes evaluation
+        sim, la = sim_logits[0], labels[0]
+        vid_feat = i_features[0]
         for i in range(1, len(sim_logits)): 
             sim = torch.cat((sim, sim_logits[i]), 0)
-            gt = torch.cat((gt, labels[i]), 0)
+            la = torch.cat((la, labels[i]), 0)
+            vid_feat = torch.cat((vid_feat, i_features[i]), 0)
 
-        if dist.get_rank() == 0:
-            from utils.utils import mean_average_precision
-            mAP = mean_average_precision(sim, gt)
-            print('Overall mAP: {:.03f}%'.format(mAP[1].item()))
-
+        text_feat = cls_feature/ cls_feature.norm(dim=-1, keepdim=True)
+        acc_split, acc_split_top5 = multi_split_test(vid_feat.cpu(), text_feat.cpu(), la.cpu())
+        accuracy_split, accuracy_split_std = np.mean(acc_split), np.std(acc_split)
+        accuracy_split_top5, accuracy_split_top5_std = np.mean(acc_split_top5), np.std(acc_split_top5)
+        print('-----Half-classes Evaluation-----')
+        print('Top1: mean {:.03f}%, std {:.03f}%'.format(accuracy_split, accuracy_split_std))
+        print('Top5: mean {:.03f}%, std {:.03f}%'.format(accuracy_split_top5, accuracy_split_top5_std))  
     return top1.avg
+
 
 # utils
 @torch.no_grad()
@@ -252,6 +259,47 @@ def concat_all_gather(tensor):
 
     output = torch.cat(tensors_gather, dim=0)
     return output.cpu()
+
+def compute_accuracy(vis_emb, text_emb, label):
+    n_class = len(text_emb)
+    n_samples = len(vis_emb)
+    similarity=(100.0 * vis_emb @ text_emb.T)
+    similarity=similarity.view(n_samples, -1, n_class).softmax(dim = -1)
+    similarity=similarity.mean(dim = 1, keepdim = False)  # b 101
+    prec=accuracy(similarity, label, topk = (1, 5))
+    return prec[0], prec[1]
+ 
+ 
+def multi_split_test(vis_embs, text_embs, true_label):
+    # vis_embs: [10000, 768]
+    # text_embs: [101, 768]
+    # true_label: [10000,]
+    full_acc1, full_acc5 = compute_accuracy(vis_embs, text_embs, true_label)
+    print('-----Full-classes Evaluation------')
+    print('Overall Top1 {:.03f}% Top5 {:.03f}%'.format(full_acc1.item(), full_acc5.item()))
+ 
+    # Calculate accuracy per split
+    # Only when the model has been trained on a different dataset
+    true_label = true_label.numpy()
+    accuracy_split, accuracy_split_top5 = np.zeros(10), np.zeros(10)
+    for split in range(len(accuracy_split)):
+        np.random.seed(split)
+        sel_classes = np.random.permutation(len(text_embs))[:len(text_embs) // 2]  # [50, ]
+        sel = [l in sel_classes for l in true_label]  # len = 10000
+        subclasses = np.unique(true_label[sel])  # [50, ]
+        # label_map = {}
+        # for i in range(len(subclasses)):
+        #     label_map[subclasses[i]] = i
+        # new_label = np.array([label_map[l] for l in true_label[sel]])
+        # new_label = torch.from_numpy(new_label)
+        # label mapping: [4900, ], new label
+        tl = np.array([int(np.where(l == subclasses)[0]) for l in true_label[sel]])
+        tl = torch.from_numpy(tl)
+        acc, acc5 = compute_accuracy(vis_embs[sel], text_embs[subclasses], tl)
+        accuracy_split[split] = acc
+        accuracy_split_top5[split] = acc5
+    
+    return accuracy_split, accuracy_split_top5
 
 
 if __name__ == '__main__':

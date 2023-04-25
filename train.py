@@ -5,6 +5,7 @@ import argparse
 
 import torch
 import torch.nn as nn
+from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel
 import torch.distributed as dist
@@ -26,7 +27,6 @@ import datetime
 import shutil
 from contextlib import suppress
 
-from datasets.video import Video_dataset
 from modules.video_clip import video_header
 from utils.NCELoss import NCELoss, DualLoss
 from utils.Augmentation import get_augmentation
@@ -155,17 +155,38 @@ def main(args):
         config.network.interaction,
         clip_state_dict)
 
- 
     if args.precision == "amp" or args.precision == "fp32":
         model = model.float()
 
-
-    train_data = Video_dataset(
-        config.data.train_root, config.data.train_list,
-        config.data.label_list, num_segments=config.data.num_segments,
-        modality=config.data.modality,
-        image_tmpl=config.data.image_tmpl, random_shift=config.data.random_shift,
-        transform=transform_train, dense_sample=config.data.dense)
+    if config.data.dataset == 'charades':
+        from datasets.charades import Video_dataset
+        train_data = Video_dataset(
+            config.data.train_root, config.data.train_list,
+            config.data.label_list, num_segments=config.data.num_segments,
+            modality=config.data.modality,
+            image_tmpl=config.data.image_tmpl, random_shift=config.data.random_shift,
+            transform=transform_train, dense_sample=config.data.dense,
+            fps=config.data.fps)
+        val_data = Video_dataset(
+            config.data.val_root, config.data.val_list, config.data.label_list,
+            random_shift=False, num_segments=config.data.num_segments,
+            modality=config.data.modality,
+            image_tmpl=config.data.image_tmpl,
+            transform=transform_val, test_mode=True, dense_sample=config.data.dense)            
+    else:
+        from datasets.video import Video_dataset
+        train_data = Video_dataset(
+            config.data.train_root, config.data.train_list,
+            config.data.label_list, num_segments=config.data.num_segments,
+            modality=config.data.modality,
+            image_tmpl=config.data.image_tmpl, random_shift=config.data.random_shift,
+            transform=transform_train, dense_sample=config.data.dense)
+        val_data = Video_dataset(
+            config.data.val_root, config.data.val_list, config.data.label_list,
+            random_shift=False, num_segments=config.data.num_segments,
+            modality=config.data.modality,
+            image_tmpl=config.data.image_tmpl,
+            transform=transform_val, dense_sample=config.data.dense)            
 
     ################ Few shot data for training ###########
     if config.data.shot:
@@ -192,12 +213,6 @@ def main(args):
         batch_size=config.data.batch_size, num_workers=config.data.workers,
         sampler=train_sampler, drop_last=True)
 
-    val_data = Video_dataset(
-        config.data.val_root, config.data.val_list, config.data.label_list,
-        random_shift=False, num_segments=config.data.num_segments,
-        modality=config.data.modality,
-        image_tmpl=config.data.image_tmpl,
-        transform=transform_val, dense_sample=config.data.dense)
     val_sampler = torch.utils.data.distributed.DistributedSampler(val_data, shuffle=False)
     val_loader = DataLoader(val_data,
         batch_size=config.data.batch_size,num_workers=config.data.workers,
@@ -266,13 +281,22 @@ def main(args):
     best_prec1 = 0.0
     if config.solver.evaluate:
         logger.info(("===========evaluate==========="))
-        prec1 = validate(
-            start_epoch,
-            val_loader, classes, device, 
-            model, video_head, config, n_class, logger)
+
+        if config.data.dataset == 'charades':
+            prec1, output_list, labels_list = validate_mAP(
+                start_epoch,
+                val_loader, classes, device,
+                model, video_head, config, n_class, logger)
+        else:
+            prec1, output_list, labels_list = validate(
+                start_epoch,
+                val_loader, classes, device,
+                model, video_head, config, n_class, logger)
         return
 
-
+    #############
+    save_score = True if config.data.select_topk_attributes else False
+    #############
 
     for epoch in range(start_epoch, config.solver.epochs):
         if args.distributed:
@@ -282,7 +306,10 @@ def main(args):
               epoch, device, lr_scheduler, config, classes, logger)
 
         if (epoch+1) % config.logging.eval_freq == 0:
-            prec1 = validate(epoch, val_loader, classes, device, model, video_head, config, n_class, logger)
+            if config.data.dataset == 'charades':
+                prec1, output_list, labels_list = validate_mAP(epoch, val_loader, classes, device, model, video_head, config, n_class, logger)
+            else:
+                prec1, output_list, labels_list = validate(epoch, val_loader, classes, device, model, video_head, config, n_class, logger, save_score)
 
             if dist.get_rank() == 0:
                 is_best = prec1 > best_prec1
@@ -294,6 +321,9 @@ def main(args):
                 epoch_saving(epoch, model.module, video_head_nomodule, optimizer, filename)
                 if is_best:
                     best_saving(working_dir, epoch, model.module, video_head_nomodule, optimizer)
+                    if save_score:
+                        save_sims(output_list, labels_list)
+
 
 
 def train(model, video_head, train_loader, optimizer, criterion, scaler,
@@ -353,12 +383,10 @@ def train(model, video_head, train_loader, optimizer, criterion, scaler,
         if scaler is not None:
             # back propagation
             scaler.scale(loss).backward()
-
             if (i + 1) % config.solver.grad_accumulation_steps == 0:
-                scaler.step(optimizer)  
-                scaler.update()  
+                scaler.step(optimizer)
+                scaler.update()
                 optimizer.zero_grad()  # reset gradient
-                
         else:
             # back propagation
             loss.backward()
@@ -371,12 +399,11 @@ def train(model, video_head, train_loader, optimizer, criterion, scaler,
 
 
         batch_time.update(time.time() - end)
-        end = time.time()                
-
-        cur_iter = epoch * len(train_loader) +  i
+        end = time.time()
+        cur_iter = epoch * len(train_loader) + i
         max_iter = config.solver.epochs * len(train_loader)
         eta_sec = batch_time.avg * (max_iter - cur_iter + 1)
-        eta_sec = str(datetime.timedelta(seconds=int(eta_sec)))        
+        eta_sec = str(datetime.timedelta(seconds=int(eta_sec)))
 
         if i % config.logging.print_freq == 0:
             logger.info(('Epoch: [{0}][{1}/{2}], lr: {lr:.2e}, eta: {3}\t'
@@ -389,9 +416,11 @@ def train(model, video_head, train_loader, optimizer, criterion, scaler,
 
 
 
-def validate(epoch, val_loader, classes, device, model, video_head, config, n_class, logger):
+def validate(epoch, val_loader, classes, device, model, video_head, config, n_class, logger, return_sim=False):
     top1 = AverageMeter()
     top5 = AverageMeter()
+    sims_list = []
+    labels_list = []
     model.eval()
     video_head.eval()
 
@@ -408,6 +437,13 @@ def validate(epoch, val_loader, classes, device, model, video_head, config, n_cl
 
             similarity = similarity.view(b, -1, n_class).softmax(dim=-1)  # [bs, n_frames, n_cls]
             similarity = similarity.mean(dim=1, keepdim=False)  # [bs, n_cls]
+
+            if return_sim:
+                sims = allgather(similarity)
+                labels = gather_labels(class_id)
+                sims_list.append(sims)
+                labels_list.append(labels)
+
             prec = accuracy(similarity, class_id, topk=(1, 5))
             prec1 = reduce_tensor(prec[0])
             prec5 = reduce_tensor(prec[1])
@@ -423,8 +459,59 @@ def validate(epoch, val_loader, classes, device, model, video_head, config, n_cl
                          i, len(val_loader), top1=top1, top5=top5)))
     logger.info(('Testing Results: Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f}'
         .format(top1=top1, top5=top5)))
-    return top1.avg
+    if return_sim:
+        return top1.avg, sims_list, labels_list
+    else:
+        return top1.avg, None, None
 
+def validate_mAP(epoch, val_loader, classes, device, model, video_head, config, n_class, logger):
+    mAP = AverageMeter()
+    model.eval()
+    video_head.eval()
+    from torchnet import meter
+    maper = meter.mAPMeter()
+    sims_list = []
+    labels_list = []
+
+    with torch.no_grad():
+        text_inputs = classes.to(device)  # [400, 77]
+        cls_feature, text_features = model.module.encode_text(text_inputs, return_token=True)  # [400, 512]
+        for i, (image, class_id) in enumerate(val_loader):
+            image = image.view((-1, config.data.num_segments, 3) + image.size()[-2:])
+            b, t, c, h, w = image.size()
+            class_id = class_id.to(device)
+            image_input = image.to(device).view(-1, c, h, w)
+            image_features = model.module.encode_image(image_input).view(b, t, -1)
+            similarity = video_head(image_features, text_features, cls_feature)
+
+            similarity = similarity.view(b, -1, n_class).softmax(dim=-1)  # [bs, 16, 400]
+            similarity = similarity.mean(dim=1, keepdim=False)  # [bs, 400]
+            similarity = F.softmax(similarity, dim=1)
+            output = allgather(similarity)
+            labels = gather_labels(class_id)
+            sims_list.append(output)
+            labels_list.append(labels)
+
+            maper.add(output, labels)
+            mAP.update(maper.value().numpy(),labels.size(0))
+
+            if i % config.logging.print_freq == 0:
+                logger.info(
+                    ('Test: [{0}/{1},mAP:{map:.3f}]\t'.format(i, len(val_loader), map=mAP.avg * 100)))
+
+    logger.info(('Testing Results mAP === {mAP_result:.3f}'.format(mAP_result=mAP.avg * 100)))
+    return mAP.avg * 100, sims_list, labels_list
+
+
+def save_sims(output_list, labels_list):
+    outputs_sim = torch.cat(output_list, dim=0)
+    labels_list_res = torch.cat(labels_list, dim=0)
+    prec = accuracy(outputs_sim, labels_list_res, topk=(1, 5))
+    torch.save(outputs_sim, 'video_sentence_fusion/video_sims.pt')
+    torch.save(labels_list_res, 'video_sentence_fusion/video_labels.pt')
+    print('outputs_sim.shape==', outputs_sim.shape)
+    print('labels_list_res.shape===', labels_list_res.shape)
+    print('top1====', prec[0].item())
 
 if __name__ == '__main__':
     args = get_parser() 

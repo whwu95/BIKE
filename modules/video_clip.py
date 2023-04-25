@@ -161,6 +161,7 @@ class video_header(nn.Module):
         logits = self.get_logits(vid_emb, text_emb, cls_emb)
         return logits
 
+
 class sentence_text_logit(nn.Module):
     def __init__(self, clip_state_dict):
         super().__init__()
