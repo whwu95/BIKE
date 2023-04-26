@@ -50,7 +50,7 @@ This is the official implementation of our 🚴 **BIKE** (BIdirectional Knowledg
 </p></details>
 
 ## News
--  🚀 **Efficient Training**: Almost all models can be trained using **8 NVIDIA V100 GPUs**. Especially, we can train ViT-L/14 (336) backbone using **8 GPUs** and achieve **88.3%** Top-1 accuracy on Kinetics-400 dataset!
+-  🚀 **Efficient Training**: Almost all models can be trained using **8 NVIDIA V100 GPUs**. Especially, we can train ViT-L/14 (336) backbone with 8 frames using **8 GPUs** and achieve **88.3%** Top-1 accuracy on Kinetics-400 dataset!
 -  `Apr 26, 2023`: All models, configs and training logs have been released.
 -  `Apr 20, 2023`: Main training codes have been released, including single-node/multi-node multi-GPU distributed training. Thanks for your star 😝.
 -  `Feb 28, 2023`: 🎉Our **BIKE** has been accepted by **CVPR-2023**.
