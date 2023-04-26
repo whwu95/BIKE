@@ -51,6 +51,7 @@ This is the official implementation of our 🚴 **BIKE** (BIdirectional Knowledg
 
 ## News
 -  🚀 **Efficient Training**: Almost all models can be trained using **8 NVIDIA V100 GPUs**. Especially, we can train ViT-L/14 (336) backbone using **8 GPUs** and achieve **88.3%** Top-1 accuracy on Kinetics-400 dataset!
+-  `Apr 26, 2023`: All models, configs and training logs have been released.
 -  `Apr 20, 2023`: Main training codes have been released, including single-node/multi-node multi-GPU distributed training. Thanks for your star 😝.
 -  `Feb 28, 2023`: 🎉Our **BIKE** has been accepted by **CVPR-2023**.
 
@@ -145,8 +146,8 @@ ViT-L/14 | 16x224<sup>2</sup> | 32 x 8 = 256 | 29G |
 
 | Architecture | Input | Views | Top-1(%) | checkpoint | Train log| config| 
 |:------------:|:-------------------:|:------------------:|:-----------------:|:--------------:|:--------------:|:--------------:|
-| ViT-B/32 <sup>V+A</sup>  | 8x224<sup>2</sup> | 1x1 | 81.4| [Score]() | [log]() | [config](configs/k400/k400_train_video_attr_vitb-32-f8.yaml) |
-| ViT-B/16 | 8x224<sup>2</sup> | 4x3  | 84.0 | [Github]() | [log]() | [config](configs/k400/k400_train_rgb_vitb-16-f8.yaml) |
+| ViT-B/32 <sup>V+A</sup>  | 8x224<sup>2</sup> | 1x1 | 81.4| [Score](https://github.com/whwu95/BIKE/releases/download/v1.0/video_sentence_fusion.zip) | [log](exps/k400/ViT-B/32/8f/video_attributes_log.txt) | [config](configs/k400/k400_train_video_attr_vitb-32-f8.yaml) |
+| ViT-B/16 | 8x224<sup>2</sup> | 4x3  | 84.0 | [Github](https://github.com/whwu95/BIKE/releases/download/v1.0/k400-vit-b-16-f8.pt) | [log](exps/k400/ViT-B/16/8f/log.txt) | [config](configs/k400/k400_train_rgb_vitb-16-f8.yaml) |
 | ViT-L/14* | 8x224<sup>2</sup> | 4x3| 87.4 | [OneDrive]() | [log](exps/k400/ViT-L/14/8f/log.txt) | [config](configs/k400/k400_train_rgb_vitl-14-f8.yaml) | 
 | ViT-L/14 | 16x224<sup>2</sup> | 4x3| 88.1| [OneDrive]() | [log](exps/k400/ViT-L/14/16f/log.txt) | [config](configs/k400/k400_train_rgb_vitl-14-f16.yaml) | 
 | ViT-L/14 | 8x336<sup>2</sup> | 4x3  | 88.3 | [OneDrive]()  | [log](exps/k400/ViT-L/14-336px/8f/log.txt) | [config](configs/k400/k400_train_rgb_vitl-14-336-f8.yaml) |
@@ -243,17 +244,17 @@ We provide more examples of testing commands below.
 ```sh
 # Efficient Setting: Single view evaluation. 
 # E.g., ViT-L/14 8 Frames on Kinetics-400. You should get around 86.5% top-1 accuracy. 
-sh scripts/run_test.sh  configs/k400/k400_train_rgb_vitl-14-f8.yaml exps/k400/ViT-L/14/8f/model_best.pt
+sh scripts/run_test.sh  configs/k400/k400_train_rgb_vitl-14-f8.yaml exps/k400/ViT-L/14/8f/k400-vit-l-14-f8.pt
 
 # Accurate Setting: Multi-view evalition (4clipsx3crops).
 # You should get around 87.4% top-1 accuracy. 
-sh scripts/run_test.sh  configs/k400/k400_train_rgb_vitl-14-f8.yaml exps/k400/ViT-L/14/8f/model_best.pt --test_crops 3  --test_clips 4
+sh scripts/run_test.sh  configs/k400/k400_train_rgb_vitl-14-f8.yaml exps/k400/ViT-L/14/8f/k400-vit-l-14-f8.pt --test_crops 3  --test_clips 4
 
-# Test the Charades dataset using the mAP metric. You should achieve around 50.4 mAP.
-sh scripts/run_test_charades.sh configs/charades/charades_k400_finetune_336.yaml exps/charades/ViT-L/14-336px/16f/model_best.pt --test_crops 1  --test_clips 4
+# Test the Charades dataset using the mAP metric. You should achieve around 50.7 mAP.
+sh scripts/run_test_charades.sh configs/charades/charades_k400_finetune_336.yaml exps/charades/ViT-L/14-336px/16f/charades-vit-l-336-f16.pt --test_crops 1  --test_clips 4
 
-# Test the ActivityNet dataset using top1 and mAP metric. You should achieve around 96.1 mAP.
-sh scripts/run_test.sh configs/anet/anet_k400_finetune_336.yaml exps/anet/ViT-L/14-336px/16f/model_best.pt --test_crops 1  --test_clips 4
+# Test the ActivityNet dataset using top1 and mAP metric. You should achieve around 96.3 mAP.
+sh scripts/run_test.sh configs/anet/anet_k400_finetune.yaml exps/anet/ViT-L/14/f16/anet-vit-l-f16.pt --test_crops 1  --test_clips 4
 ```
 </details>
 
@@ -272,22 +273,22 @@ We use the Kinetics-400 pre-trained model (e.g., [ViT-L/14 with 8 frames](config
 ```sh
 # On ActivityNet: reporting the half-classes and full-classes results
 # Half-classes: 86.18 ± 1.05, Full-classes: 80.04
-sh scripts/run_test_zeroshot.sh  configs/anet/anet_zero_shot.yaml exps/k400/ViT-L/14/f8/last_model.pt
+sh scripts/run_test_zeroshot.sh  configs/anet/anet_zero_shot.yaml exps/k400/ViT-L/14/8f/k400-vit-l-14-f8.pt
 
 # On UCF101: reporting the half-classes and full-classes results
 # Half-classes: 86.63 ± 3.4, Full-classes: 80.83
-sh scripts/run_test_zeroshot.sh  configs/ucf101/ucf_zero_shot.yaml exps/k400/ViT-L/14/f8/last_model.pt
+sh scripts/run_test_zeroshot.sh  configs/ucf101/ucf_zero_shot.yaml exps/k400/ViT-L/14/8f/k400-vit-l-14-f8.pt
 
 # On HMDB51: reporting the half-classes and full-classes results
 # Half-classes: 61.37 ± 3.68, Full-classes: 52.75
-sh scripts/run_test_zeroshot.sh  configs/hmdb51/hmdb_zero_shot.yaml exps/k400/ViT-L/14/f8/last_model.pt
+sh scripts/run_test_zeroshot.sh  configs/hmdb51/hmdb_zero_shot.yaml exps/k400/ViT-L/14/8f/k400-vit-l-14-f8.pt
 
 # On Kinetics-600: manually calculating the mean accuracy with standard deviation of three splits.
 # Split1: 70.14, Split2: 68.31, Split3: 67.15
 # Average: 68.53 ± 1.23
-sh scripts/run_test.sh  configs/k600/k600_zero_shot_split1.yaml exp/k400/ViT-L/14/f8/last_model.pt
-sh scripts/run_test.sh  configs/k600/k600_zero_shot_split2.yaml exp/k400/ViT-L/14/f8/last_model.pt
-sh scripts/run_test.sh  configs/k600/k600_zero_shot_split3.yaml exp/k400/ViT-L/14/f8/last_model.pt
+sh scripts/run_test.sh  configs/k600/k600_zero_shot_split1.yaml exps/k400/ViT-L/14/8f/k400-vit-l-14-f8.pt
+sh scripts/run_test.sh  configs/k600/k600_zero_shot_split2.yaml exps/k400/ViT-L/14/8f/k400-vit-l-14-f8.pt
+sh scripts/run_test.sh  configs/k600/k600_zero_shot_split3.yaml exps/k400/ViT-L/14/8f/k400-vit-l-14-f8.pt
 ```
 </details>
 
@@ -301,7 +302,7 @@ If you use our code in your research or wish to refer to the baseline results, p
 @inproceedings{bike,
   title={Bidirectional Cross-Modal Knowledge Exploration for Video Recognition with Pre-trained Vision-Language Models},
   author={Wu, Wenhao and Wang, Xiaohan and Luo, Haipeng and Wang, Jingdong and Yang, Yi and Ouyang, Wanli},
-  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
+  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
   year={2023}
 }
 ```
@@ -309,7 +310,7 @@ If you use our code in your research or wish to refer to the baseline results, p
 If you also find [Text4Vis](https://github.com/whwu95/Text4Vis) useful 😁, please cite the paper:
 
 ```bibtex
-@article{wu2023revisiting,
+@article{text4vis,
   title={Revisiting Classifier: Transferring Vision-Language Models for Video Recognition},
   author={Wu, Wenhao and Sun, Zhun and Ouyang, Wanli},
   booktitle={Proceedings of AAAI Conference on Artificial Intelligence (AAAI)},
@@ -320,8 +321,8 @@ If you also find [Text4Vis](https://github.com/whwu95/Text4Vis) useful 😁, ple
 <a name="acknowledgment"></a>
 ## 🎗️ Acknowledgement
 
-This repository is built based on [Text4Vis](https://github.com/whwu95/Text4Vis) and [CLIP](https://github.com/openai/CLIP). Sincere thanks to their wonderful works.
+This repository is built based on [Text4Vis](https://github.com/whwu95/Text4Vis), [ActionCLIP](https://github.com/sallymmx/actionclip), and [CLIP](https://github.com/openai/CLIP). Sincere thanks to their wonderful works.
 
 
 ## 👫 Contact
-For any question, please file an issue or contact [Wenhao Wu](https://whwu95.github.io/)
+For any question, please file an issue or contact [Wenhao Wu](https://whwu95.github.io/).

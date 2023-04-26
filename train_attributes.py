@@ -5,7 +5,6 @@ import argparse
 
 import torch
 import torch.nn as nn
-from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel
 import torch.distributed as dist
@@ -27,11 +26,13 @@ import datetime
 import shutil
 from contextlib import suppress
 
-from modules.video_clip import video_header
+from datasets.video_attr import Video_dataset
+from modules.video_clip import sentence_text_logit
 from utils.NCELoss import NCELoss, DualLoss
 from utils.Augmentation import get_augmentation
 from utils.solver import _optimizer, _lr_scheduler
 from modules.text_prompt import text_prompt
+from utils.utils import fusion_acc
 
 class AllGather(torch.autograd.Function):
     """An autograd function that performs allgather on a tensor."""
@@ -149,63 +150,22 @@ def main(args):
     logger.info('train transforms: {}'.format(transform_train.transforms))
     logger.info('val transforms: {}'.format(transform_val.transforms))
 
+    sentence_head = sentence_text_logit(clip_state_dict)
 
-    video_head = video_header(
-        config.network.sim_header,
-        config.network.interaction,
-        clip_state_dict)
 
     if args.precision == "amp" or args.precision == "fp32":
         model = model.float()
 
-    if config.data.dataset == 'charades':
-        from datasets.charades import Video_dataset
-        train_data = Video_dataset(
-            config.data.train_root, config.data.train_list,
-            config.data.label_list, num_segments=config.data.num_segments,
-            modality=config.data.modality,
-            image_tmpl=config.data.image_tmpl, random_shift=config.data.random_shift,
-            transform=transform_train, dense_sample=config.data.dense,
-            fps=config.data.fps)
-        val_data = Video_dataset(
-            config.data.val_root, config.data.val_list, config.data.label_list,
-            random_shift=False, num_segments=config.data.num_segments,
-            modality=config.data.modality,
-            image_tmpl=config.data.image_tmpl,
-            transform=transform_val, test_mode=True, dense_sample=config.data.dense)            
-    else:
-        from datasets.video import Video_dataset
-        train_data = Video_dataset(
-            config.data.train_root, config.data.train_list,
-            config.data.label_list, num_segments=config.data.num_segments,
-            modality=config.data.modality,
-            image_tmpl=config.data.image_tmpl, random_shift=config.data.random_shift,
-            transform=transform_train, dense_sample=config.data.dense)
-        val_data = Video_dataset(
-            config.data.val_root, config.data.val_list, config.data.label_list,
-            random_shift=False, num_segments=config.data.num_segments,
-            modality=config.data.modality,
-            image_tmpl=config.data.image_tmpl,
-            transform=transform_val, dense_sample=config.data.dense)            
 
-    ################ Few shot data for training ###########
-    if config.data.shot:
-        cls_dict = {}
-        for item  in train_data.video_list:
-            if item.label not in cls_dict:
-                cls_dict[item.label] = [item]
-            else:
-                cls_dict[item.label].append(item)
-        import random
-        select_vids = []
-        K = config.data.shot
-        for category, v in cls_dict.items():
-            slice = random.sample(v, K)
-            select_vids.extend(slice)
-        n_repeat = len(train_data.video_list) // len(select_vids)
-        train_data.video_list = select_vids * n_repeat
-        # print('########### number of videos: {} #########'.format(len(select_vids)))
-    ########################################################
+    train_data = Video_dataset(
+        config.data.train_root, config.data.train_list,
+        config.data.label_list, num_segments=config.data.num_segments,
+        modality=config.data.modality,
+        image_tmpl=config.data.image_tmpl, random_shift=config.data.random_shift,
+        transform=transform_train, dense_sample=config.data.dense,
+        select_topk_attributes=config.data.select_topk_attributes,
+        attributes_path=config.data.attributes_train_path,
+        train_video=False)
 
 
     train_sampler = torch.utils.data.distributed.DistributedSampler(train_data)                       
@@ -213,6 +173,16 @@ def main(args):
         batch_size=config.data.batch_size, num_workers=config.data.workers,
         sampler=train_sampler, drop_last=True)
 
+    val_data = Video_dataset(
+        config.data.val_root, config.data.val_list, config.data.label_list,
+        random_shift=False, num_segments=config.data.num_segments,
+        modality=config.data.modality,
+        image_tmpl=config.data.image_tmpl,
+        transform=transform_val, dense_sample=config.data.dense,
+        select_topk_attributes=config.data.select_topk_attributes,
+        attributes_path=config.data.attributes_val_path,
+        train_video=False
+        )
     val_sampler = torch.utils.data.distributed.DistributedSampler(val_data, shuffle=False)
     val_loader = DataLoader(val_data,
         batch_size=config.data.batch_size,num_workers=config.data.workers,
@@ -233,7 +203,7 @@ def main(args):
             logger.info("=> loading checkpoint '{}'".format(config.pretrain))
             checkpoint = torch.load(config.pretrain, map_location='cpu')
             model.load_state_dict(checkpoint['model_state_dict'])
-            video_head.load_state_dict(checkpoint['fusion_model_state_dict'])
+            sentence_head.load_state_dict(checkpoint['fusion_model_state_dict'])
             del checkpoint
         else:
             logger.info("=> no checkpoint found at '{}'".format(config.resume))
@@ -243,7 +213,7 @@ def main(args):
             logger.info("=> loading checkpoint '{}'".format(config.resume))
             checkpoint = torch.load(config.resume, map_location='cpu')
             model.load_state_dict(update_dict(checkpoint['model_state_dict']))
-            video_head.load_state_dict(update_dict(checkpoint['fusion_model_state_dict']))
+            sentence_head.load_state_dict(update_dict(checkpoint['fusion_model_state_dict']))
             start_epoch = checkpoint['epoch'] + 1
             logger.info("=> loaded checkpoint '{}' (epoch {})"
                    .format(config.evaluate, checkpoint['epoch']))
@@ -254,26 +224,19 @@ def main(args):
     classes = text_prompt(train_data)
     n_class = classes.size(0)
 
-    if config.network.fix_text:
-        for name, param in model.named_parameters():
-            if "visual" not in name and "logit_scale" not in name:
-                param.requires_grad_(False)
-  
-    if config.network.fix_video:
-        for name, param in model.named_parameters():
-            if "visual" in name:
-                param.requires_grad_(False)
 
-    optimizer = _optimizer(config, model, video_head)
+    for name, param in model.named_parameters():
+        if "visual" not in name and "logit_scale" not in name:
+            param.requires_grad_(False)
+  
+
+    optimizer = _optimizer(config, model, sentence_head)
     lr_scheduler = _lr_scheduler(config, optimizer)
 
     if args.distributed:
         model = DistributedDataParallel(model.cuda(), device_ids=[args.gpu])
-        if config.network.sim_header == "None" and config.network.interaction in ['DP', 'VCS']:
-            video_head_nomodule = video_head
-        else:
-            video_head = DistributedDataParallel(video_head.cuda(), device_ids=[args.gpu])
-            video_head_nomodule = video_head.module
+        sentence_head = DistributedDataParallel(sentence_head.cuda(), device_ids=[args.gpu])
+        sentence_head_nomodule = sentence_head.module
         
 
     scaler = GradScaler() if args.precision == "amp" else None
@@ -281,36 +244,22 @@ def main(args):
     best_prec1 = 0.0
     if config.solver.evaluate:
         logger.info(("===========evaluate==========="))
-
-        if config.data.dataset == 'charades':
-            prec1, output_list, labels_list = validate_mAP(
-                start_epoch,
-                val_loader, classes, device,
-                model, video_head, config, n_class, logger)
-        else:
-            prec1, output_list, labels_list = validate(
-                start_epoch,
-                val_loader, classes, device,
-                model, video_head, config, n_class, logger)
+        prec1, output_list, labels_list = validate_text(start_epoch, val_loader, classes, device, model, sentence_head, config, n_class, logger)
+        if dist.get_rank() == 0:
+            save_sims(output_list, labels_list)
         return
 
-    #############
-    save_score = True if config.data.select_topk_attributes else False
-    #############
+
 
     for epoch in range(start_epoch, config.solver.epochs):
         if args.distributed:
-            train_loader.sampler.set_epoch(epoch)        
+            train_loader.sampler.set_epoch(epoch)
 
-        train(model, video_head, train_loader, optimizer, criterion, scaler,
-              epoch, device, lr_scheduler, config, classes, logger)
+        train_sentence(model, sentence_head, train_loader, optimizer, criterion, scaler,
+                       epoch, device, lr_scheduler, config, classes, logger)
 
-        if (epoch+1) % config.logging.eval_freq == 0:
-            if config.data.dataset == 'charades':
-                prec1, output_list, labels_list = validate_mAP(epoch, val_loader, classes, device, model, video_head, config, n_class, logger)
-            else:
-                prec1, output_list, labels_list = validate(epoch, val_loader, classes, device, model, video_head, config, n_class, logger, save_score)
-
+        if (epoch+1) % config.logging.eval_freq == 0:  # and epoch>0
+            prec1, output_list, labels_list = validate_text(start_epoch, val_loader, classes, device, model, sentence_head, config, n_class,logger)
             if dist.get_rank() == 0:
                 is_best = prec1 > best_prec1
                 best_prec1 = max(prec1, best_prec1)
@@ -318,66 +267,69 @@ def main(args):
                 logger.info('Saving:')
                 filename = "{}/last_model.pt".format(working_dir)
 
-                epoch_saving(epoch, model.module, video_head_nomodule, optimizer, filename)
+                epoch_saving(epoch, model.module, sentence_head_nomodule, optimizer, filename)
                 if is_best:
-                    best_saving(working_dir, epoch, model.module, video_head_nomodule, optimizer)
-                    if save_score:
-                        save_sims(output_list, labels_list)
+                    save_sims(output_list, labels_list)
+                    best_saving(working_dir, epoch, model.module, sentence_head_nomodule, optimizer)
 
 
-
-def train(model, video_head, train_loader, optimizer, criterion, scaler,
+def train_sentence(model, fusion_model, train_loader, optimizer, criterion, scaler,
           epoch, device, lr_scheduler, config, classes, logger):
-    """ train a epoch """
+
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
-    img_losses = AverageMeter()
-    text_losses = AverageMeter()
-
     model.train()
-    video_head.train()
+    fusion_model.train()
     autocast = torch.cuda.amp.autocast if args.precision == 'amp' else suppress
     end = time.time()
-    for i,(images, list_id) in enumerate(train_loader):
+    for i, (classname_sentence, classname_sentence_mask, class_id) in enumerate(train_loader):
         if config.solver.type != 'monitor':
             if (i + 1) == 1 or (i + 1) % 10 == 0:
                 lr_scheduler.step(epoch + i / len(train_loader))
-        # lr_scheduler.step()
 
         data_time.update(time.time() - end)
-        # b t3 h w
-        images = images.view((-1,config.data.num_segments,3)+images.size()[-2:])  # bt 3 h w
-        b,t,c,h,w = images.size()
+        classname_sentence = classname_sentence.to(device).reshape(-1, classname_sentence.shape[-1])
+        b, num_token = classname_sentence.size()
+        class_id = class_id.to(device)
 
-        images= images.view(-1,c,h,w) # omit the Image.fromarray if the images already in PIL format, change this line to images=list_image if using preprocess inside the dataset class
-
-        texts = classes # n_cls 77
+        texts = classes
+        texts = texts.to(device)
 
         with autocast():
             if config.solver.loss_type in ['NCE', 'DS']:
-                texts = texts[list_id]  # bs 77
-                image_embedding, cls_embedding, text_embedding, logit_scale = model(images, texts, return_token=True)
-                image_embedding = image_embedding.view(b,t,-1)
-                # gather
-                image_embedding = allgather(image_embedding)
-                if text_embedding is not None:
-                    text_embedding = allgather(text_embedding)
-                cls_embedding = allgather(cls_embedding)     
+                batch_texts = texts[class_id]
+                batch_texts = batch_texts.to(device)
+                classname_sentence_features_cls, classname_sentence_features = model.module.encode_text(classname_sentence, return_token=True)
+                classname_sentence_features = classname_sentence_features / classname_sentence_features.norm(dim=-1,keepdim=True)
+                classname_sentence_features_cls = classname_sentence_features_cls / classname_sentence_features_cls.norm(dim=-1,keepdim=True)
 
-                logits = logit_scale * video_head(image_embedding, text_embedding, cls_embedding)
-                
-                list_id = gather_labels(list_id.to(device))  # bs -> n_gpu * bs
-
-                ground_truth = torch.tensor(gen_label(list_id),dtype=image_embedding.dtype,device=device)
-                # gt = [bs bs]
-                loss_imgs = criterion(logits, ground_truth)
+                text_cls_features, text_features = model.module.encode_text(batch_texts, return_token=True)
+                text_features = text_features / text_features.norm(dim=-1,keepdim=True)
+                text_cls_features = text_cls_features / text_cls_features.norm(dim=-1, keepdim=True)
+                classname_sentence_features = allgather(classname_sentence_features)
+                classname_sentence_features_cls = allgather(classname_sentence_features_cls)
+                text_features = allgather(text_features)
+                text_cls_features = allgather(text_cls_features)
+                logit_scale = model.module.logit_scale.exp()
+                logits = logit_scale * fusion_model(query_cls_emb=text_cls_features, sentence_cls_features=classname_sentence_features_cls)
+                class_id = gather_labels(class_id.to(device))
+                ground_truth = torch.tensor(gen_label(class_id), dtype=classname_sentence_features.dtype, device=device)
+                loss_sentence = criterion(logits, ground_truth)
                 loss_texts = criterion(logits.T, ground_truth)
-                loss = (loss_imgs + loss_texts)/2
+                loss = (loss_sentence + loss_texts) / 2
+            elif config.solver.loss_type == 'CE':
+                logit_scale = model.logit_scale.exp()
+                batch_texts = texts[class_id]
+                classname_sentence_features = model.module.encode_text(classname_sentence, return_token=False)
+                classname_sentence_features = classname_sentence_features / classname_sentence_features.norm(dim=-1,keepdim=True)
+                text_features = model.module.encode_text(batch_texts, return_token=False)
+                text_features = text_features / text_features.norm(dim=-1,keepdim=True)
+                logits = logit_scale*torch.matmul(classname_sentence_features, text_features.t())
+                loss = criterion(logits, class_id.to(device))
             else:
                 raise NotImplementedError
 
-            # loss regularization
             loss = loss / config.solver.grad_accumulation_steps
 
         if scaler is not None:
@@ -410,39 +362,40 @@ def train(model, video_head, train_loader, optimizer, criterion, scaler,
                          'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                          'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
                          'Loss {loss.val:.4f} ({loss.avg:.4f})'.format(
-                             epoch, i, len(train_loader), eta_sec, batch_time=batch_time, data_time=data_time, loss=losses,
-                             lr=optimizer.param_groups[-1]['lr'])))
+                epoch, i, len(train_loader), eta_sec, batch_time=batch_time, data_time=data_time, loss=losses,
+                lr=optimizer.param_groups[-1]['lr'])))  # TODO
 
-
-
-
-def validate(epoch, val_loader, classes, device, model, video_head, config, n_class, logger, return_sim=False):
+def validate_text(epoch, val_loader, classes, device, model, fusion_model, config, n_class, logger):
     top1 = AverageMeter()
     top5 = AverageMeter()
-    sims_list = []
-    labels_list = []
     model.eval()
-    video_head.eval()
+    fusion_model.eval()
 
     with torch.no_grad():
-        text_inputs = classes.to(device)  # [n_cls, 77]
-        cls_feature, text_features = model.module.encode_text(text_inputs, return_token=True)  # [n_cls, feat_dim]
-        for i, (image, class_id) in enumerate(val_loader):
-            image = image.view((-1, config.data.num_segments, 3) + image.size()[-2:])
-            b, t, c, h, w = image.size()
+        output_list = []
+        labels_list = []
+        text_inputs = classes.to(device)
+        text_cls_features, text_features = model.module.encode_text(text_inputs, return_token=True)
+        text_cls_features = text_cls_features / text_cls_features.norm(dim=-1, keepdim=True)
+        text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+
+        for i, (classname_sentence, classname_sentence_mask,class_id) in enumerate(val_loader):
+            classname_sentence = classname_sentence.reshape(-1,classname_sentence.shape[-1])
+            b,num_token = classname_sentence.size()
             class_id = class_id.to(device)
-            image_input = image.to(device).view(-1, c, h, w)
-            image_features = model.module.encode_image(image_input).view(b, t, -1)
-            similarity = video_head(image_features, text_features, cls_feature)
+            classname_sentence = classname_sentence.to(device).reshape(-1,classname_sentence.shape[-1])
+            classname_sentence_features_cls, classname_sentence_features = model.module.encode_text(classname_sentence, return_token=True)
+            classname_sentence_features = classname_sentence_features / classname_sentence_features.norm(dim=-1, keepdim=True)
+            classname_sentence_features_cls = classname_sentence_features_cls / classname_sentence_features_cls.norm(dim=-1, keepdim=True)
 
-            similarity = similarity.view(b, -1, n_class).softmax(dim=-1)  # [bs, n_frames, n_cls]
-            similarity = similarity.mean(dim=1, keepdim=False)  # [bs, n_cls]
+            similarity = fusion_model(query_cls_emb=text_cls_features, sentence_cls_features=classname_sentence_features_cls)
+            similarity = similarity.view(b, -1, n_class).softmax(dim=-1)  # [bs, 16, 400]
+            similarity = similarity.mean(dim=1, keepdim=False)  # [bs, 400]
 
-            if return_sim:
-                sims = allgather(similarity)
-                labels = gather_labels(class_id)
-                sims_list.append(sims)
-                labels_list.append(labels)
+            output = allgather(similarity)
+            labels = gather_labels(class_id)
+            output_list.append(output)
+            labels_list.append(labels)
 
             prec = accuracy(similarity, class_id, topk=(1, 5))
             prec1 = reduce_tensor(prec[0])
@@ -456,64 +409,24 @@ def validate(epoch, val_loader, classes, device, model, video_head, config, n_cl
                     ('Test: [{0}/{1}]\t'
                      'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
                      'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                         i, len(val_loader), top1=top1, top5=top5)))
+                        i, len(val_loader), top1=top1, top5=top5)))
     logger.info(('Testing Results: Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f}'
-        .format(top1=top1, top5=top5)))
-    if return_sim:
-        return top1.avg, sims_list, labels_list
-    else:
-        return top1.avg, None, None
-
-def validate_mAP(epoch, val_loader, classes, device, model, video_head, config, n_class, logger):
-    mAP = AverageMeter()
-    model.eval()
-    video_head.eval()
-    from torchnet import meter
-    maper = meter.mAPMeter()
-    sims_list = []
-    labels_list = []
-
-    with torch.no_grad():
-        text_inputs = classes.to(device)  # [400, 77]
-        cls_feature, text_features = model.module.encode_text(text_inputs, return_token=True)  # [400, 512]
-        for i, (image, class_id) in enumerate(val_loader):
-            image = image.view((-1, config.data.num_segments, 3) + image.size()[-2:])
-            b, t, c, h, w = image.size()
-            class_id = class_id.to(device)
-            image_input = image.to(device).view(-1, c, h, w)
-            image_features = model.module.encode_image(image_input).view(b, t, -1)
-            similarity = video_head(image_features, text_features, cls_feature)
-
-            similarity = similarity.view(b, -1, n_class).softmax(dim=-1)  # [bs, 16, 400]
-            similarity = similarity.mean(dim=1, keepdim=False)  # [bs, 400]
-            similarity = F.softmax(similarity, dim=1)
-            output = allgather(similarity)
-            labels = gather_labels(class_id)
-            sims_list.append(output)
-            labels_list.append(labels)
-
-            maper.add(output, labels)
-            mAP.update(maper.value().numpy(),labels.size(0))
-
-            if i % config.logging.print_freq == 0:
-                logger.info(
-                    ('Test: [{0}/{1},mAP:{map:.3f}]\t'.format(i, len(val_loader), map=mAP.avg * 100)))
-
-    logger.info(('Testing Results mAP === {mAP_result:.3f}'.format(mAP_result=mAP.avg * 100)))
-    return mAP.avg * 100, sims_list, labels_list
-
+                 .format(top1=top1, top5=top5)))
+    return top1.avg, output_list, labels_list
 
 def save_sims(output_list, labels_list):
     outputs_sim = torch.cat(output_list, dim=0)
     labels_list_res = torch.cat(labels_list, dim=0)
     prec = accuracy(outputs_sim, labels_list_res, topk=(1, 5))
-    torch.save(outputs_sim, 'video_sentence_fusion/k400_video_sims.pt')
-    torch.save(labels_list_res, 'video_sentence_fusion/k400_video_labels.pt')
-    # print('outputs_sim.shape==', outputs_sim.shape)
-    # print('labels_list_res.shape===', labels_list_res.shape)
-    # print('top1====', prec[0].item())
+    torch.save(outputs_sim, 'video_sentence_fusion/k400_sentence_sims.pt')
+    torch.save(labels_list_res,'video_sentence_fusion/k400_sentence_labels.pt')
+    # print('outputs_sim.shape==',outputs_sim.shape)
+    # print('labels_list_res.shape===',labels_list_res.shape)
+    # print('top1====',prec[0].item())
 
 if __name__ == '__main__':
     args = get_parser() 
     main(args)
+    if dist.get_rank() == 0:
+        fusion_acc()
 

@@ -8,5 +8,5 @@ fi
 
 weight=$2
 
-python -m torch.distributed.launch --master_port 1239 --nproc_per_node=8 \
+python -m torch.distributed.launch --master_port 1239 --nproc_per_node=4 \
     test.py --config ${config} --weights ${weight} ${@:3}
