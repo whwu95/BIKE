@@ -50,7 +50,7 @@ This is the official implementation of our 🚴 **BIKE** (BIdirectional Knowledg
 </p></details>
 
 ## News
--  🚀 **Efficient Training**: Almost all models can be trained using **8 NVIDIA V100 GPUs**. Especially, we can train ViT-L/14 (336) backbone with 8 frames using **8 GPUs** and achieve **88.3%** Top-1 accuracy on Kinetics-400 dataset!
+-  🚀 **Efficient Training**: Almost all models can be trained using **8 NVIDIA V100 GPUs**. Especially, we can train ViT-L/14 (336) backbone with 8 frames using **8 GPUs** and achieve **88.3%** Top-1 accuracy on Kinetics-400!
 -  `Apr 26, 2023`: All models, configs and training logs have been released.
 -  `Apr 20, 2023`: Main training codes have been released, including single-node/multi-node multi-GPU distributed training. Thanks for your star 😝.
 -  `Feb 28, 2023`: 🎉Our **BIKE** has been accepted by **CVPR-2023**.
@@ -148,10 +148,10 @@ ViT-L/14 | 16x224<sup>2</sup> | 32 x 8 = 256 | 29G |
 |:------------:|:-------------------:|:------------------:|:-----------------:|:--------------:|:--------------:|:--------------:|
 | ViT-B/32 <sup>V+A</sup>  | 8x224<sup>2</sup> | 1x1 | 81.4| [Score](https://github.com/whwu95/BIKE/releases/download/v1.0/video_sentence_fusion.zip) | [log](exps/k400/ViT-B/32/8f/video_attributes_log.txt) | [config](configs/k400/k400_train_video_attr_vitb-32-f8.yaml) |
 | ViT-B/16 | 8x224<sup>2</sup> | 4x3  | 84.0 | [Github](https://github.com/whwu95/BIKE/releases/download/v1.0/k400-vit-b-16-f8.pt) | [log](exps/k400/ViT-B/16/8f/log.txt) | [config](configs/k400/k400_train_rgb_vitb-16-f8.yaml) |
-| ViT-L/14* | 8x224<sup>2</sup> | 4x3| 87.4 | [OneDrive]() | [log](exps/k400/ViT-L/14/8f/log.txt) | [config](configs/k400/k400_train_rgb_vitl-14-f8.yaml) | 
-| ViT-L/14 | 16x224<sup>2</sup> | 4x3| 88.1| [OneDrive]() | [log](exps/k400/ViT-L/14/16f/log.txt) | [config](configs/k400/k400_train_rgb_vitl-14-f16.yaml) | 
-| ViT-L/14 | 8x336<sup>2</sup> | 4x3  | 88.3 | [OneDrive]()  | [log](exps/k400/ViT-L/14-336px/8f/log.txt) | [config](configs/k400/k400_train_rgb_vitl-14-336-f8.yaml) |
-| ViT-L/14 | 16x336<sup>2</sup> | 4x3  | 88.7 | [OneDrive]()  | [log](exps/k400/ViT-L/14-336px/16f/log.txt) | [config](configs/k400/k400_train_rgb_vitl-14-336-f16.yaml) |
+| ViT-L/14* | 8x224<sup>2</sup> | 4x3| 87.4 | [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wewu2985_sydney_edu_au/EVXtv3sCJS1Nlti85qpi3_QB1hHN_CLHung4Z2VvGPOoIA?e=Mha8PF) | [log](exps/k400/ViT-L/14/8f/log.txt) | [config](configs/k400/k400_train_rgb_vitl-14-f8.yaml) | 
+| ViT-L/14 | 16x224<sup>2</sup> | 4x3| 88.1| [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wewu2985_sydney_edu_au/ERNSsQiMmGpAi-VUodkUCrkB52-Lzc9dVen4XW6sN96u1A?e=ecvgVB) | [log](exps/k400/ViT-L/14/16f/log.txt) | [config](configs/k400/k400_train_rgb_vitl-14-f16.yaml) | 
+| ViT-L/14 | 8x336<sup>2</sup> | 4x3  | 88.3 | [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wewu2985_sydney_edu_au/EYSHPoWw0z1Pssh6jzQP-WYBgZA6wQceZulGlANJZP9GJw?e=RRXcit)  | [log](exps/k400/ViT-L/14-336px/8f/log.txt) | [config](configs/k400/k400_train_rgb_vitl-14-336-f8.yaml) |
+| ViT-L/14 | 16x336<sup>2</sup> | 4x3  | 88.7 | [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wewu2985_sydney_edu_au/ESSPEMX1OUBGl8YEAAt4KsABN0gey5Rw2608sdF86dc0Ig?e=qeiL4O)  | [log](exps/k400/ViT-L/14-336px/16f/log.txt) | [config](configs/k400/k400_train_rgb_vitl-14-336-f16.yaml) |
 <!-- | ViT-L/14 | 32x336<sup>2</sup> | 4x3  | xx.x | [OneDrive]() | [log](exps/k400/ViT-L/14-336px/32f/log.txt) | [config](configs/k400/k400_train_rgb_vitl-14-336-f32.yaml) | -->
 
 - The V+A represents a model that includes both the video and attributes branches. If not specified, our other provided models default to the video branch model.
@@ -161,28 +161,28 @@ ViT-L/14 | 16x224<sup>2</sup> | 32 x 8 = 256 | 29G |
 ### Untrimmed Video Recognition: ActivityNet
 | Architecture | Input | Views | Top-1 (%) |  mAP (%) | checkpoint | Train log| config|
 |:------------:|:-------------------:|:------------------:|:-----------------:|:--------------:|:--------------:|:--------------:|:--------------:|
-| ViT-L/14 | 16x224<sup>2</sup> | 4x1| 94.4 | 96.3| [OneDrive]() | [log](exps/anet/ViT-L/14/f16/log.txt) | [config](configs/anet/anet_k400_finetune.yaml) |
-| ViT-L/14 | 16x336<sup>2</sup> | 4x1| 94.7 | 96.1 | [OneDrive]() | [log](exps/anet/ViT-L/14-336px/f16/log.txt) | [config](configs/anet/anet_k400_finetune_336.yaml) |
+| ViT-L/14 | 16x224<sup>2</sup> | 4x1| 94.4 | 96.3| [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wewu2985_sydney_edu_au/EYeYGsBj62dJlfvvayEktOEB097t7ivqh5G5_oPTrVQ8yw?e=Vjgd7g) | [log](exps/anet/ViT-L/14/f16/log.txt) | [config](configs/anet/anet_k400_finetune.yaml) |
+| ViT-L/14 | 16x336<sup>2</sup> | 4x1| 94.7 | 96.1 | [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wewu2985_sydney_edu_au/EYNFIPRePhRCiM9NG-F3vlwB5KW6mAn0N1OeXmH6zX83FQ?e=A4XHGT) | [log](exps/anet/ViT-L/14-336px/f16/log.txt) | [config](configs/anet/anet_k400_finetune_336.yaml) |
 
 
 ### Multi-label Action Recognition: Charades
 | Architecture | Input | Views |  mAP (%) | checkpoint | Train log| config|
 |:------------:|:-------------------:|:------------------:|:-----------------:|:--------------:|:--------------:|:--------------:|
-| ViT-L/14 | 16x336<sup>2</sup> | 4x1| 50.7  | [OneDrive]() | [log](exps/charades/ViT-L/14-336px/16f/log.txt) | [config](configs/charades/charades_k400_finetune_336.yaml) |
+| ViT-L/14 | 16x336<sup>2</sup> | 4x1| 50.7  | [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wewu2985_sydney_edu_au/ET_EYh0WdB1Oh-U9wXFa9gYBBp1yBCXHoCDBhLaaZ6NFiw?e=cdoe6n) | [log](exps/charades/ViT-L/14-336px/16f/log.txt) | [config](configs/charades/charades_k400_finetune_336.yaml) |
 
 
 
 ### UCF-101
 | Architecture | Input | Views |  Top-1 (%) | checkpoint | Train log| config|
 |:------------:|:-------------------:|:------------------:|:-----------------:|:--------------:|:--------------:|:--------------:|
-| ViT-L/14 | 16x224<sup>2</sup> | 1x1 | 98.7 | [OneDrive]() | [log](exps/ucf101/ViT-L/14/f16/log.txt) | [config](configs/ucf101/ucf_k400_finetune.yaml) |
-| ViT-L/14 | 16x336<sup>2</sup> | 1x1 | 98.9 | [OneDrive]()| [log](exps/ucf101/ViT-L/14-336px/f16/log.txt) | [config](configs/ucf101/ucf_k400_finetune_336.yaml) |
+| ViT-L/14 | 16x224<sup>2</sup> | 1x1 | 98.7 | [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wewu2985_sydney_edu_au/EfpKsInxx3NGqqfd9pxOREYBtOZrS3OUIFRtaEeOouW3iQ?e=xp4Ofr) | [log](exps/ucf101/ViT-L/14/f16/log.txt) | [config](configs/ucf101/ucf_k400_finetune.yaml) |
+| ViT-L/14 | 16x336<sup>2</sup> | 1x1 | 98.9 | [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wewu2985_sydney_edu_au/EYIpb8NRQE9LmUV5c_IqVCABDBQrpmiJTBJg68kFqOEmQw?e=5iqMze)| [log](exps/ucf101/ViT-L/14-336px/f16/log.txt) | [config](configs/ucf101/ucf_k400_finetune_336.yaml) |
 
 ### HMDB-51
 | Architecture | Input | Views |  Top-1 (%) | checkpoint | Train log| config|
 |:------------:|:-------------------:|:------------------:|:-----------------:|:--------------:|:--------------:|:--------------:|
-| ViT-L/14 | 16x224<sup>2</sup> | 1x1 | 82.9 | [OneDrive]() | [log](exps/hmdb51/ViT-L/14/f16/log.txt) | [config](configs/hmdb51/hmdb_k400_finetune.yaml) |
-| ViT-L/14 | 16x336<sup>2</sup> | 1x1 | 84.3 | [OneDrive]()| [log](exps/hmdb51/ViT-L/14-336px/f16/log.txt) | [config](configs/hmdb51/hmdb_k400_finetune_336.yaml) |
+| ViT-L/14 | 16x224<sup>2</sup> | 1x1 | 82.9 | [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wewu2985_sydney_edu_au/EXDDyqmQNaVKoLTWrATJ-dUB8kAmA8ZCD-qN3jkXpO38gw?e=EJxW7g) | [log](exps/hmdb51/ViT-L/14/f16/log.txt) | [config](configs/hmdb51/hmdb_k400_finetune.yaml) |
+| ViT-L/14 | 16x336<sup>2</sup> | 1x1 | 84.3 | [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wewu2985_sydney_edu_au/EZyw6Ko2c3RPk7reUkpD-VwB_V4ujs8D5_JWGak0q2qREA?e=IjF7fW)| [log](exps/hmdb51/ViT-L/14-336px/f16/log.txt) | [config](configs/hmdb51/hmdb_k400_finetune_336.yaml) |
 
 
 
