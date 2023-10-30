@@ -325,4 +325,4 @@ This repository is built based on [Text4Vis](https://github.com/whwu95/Text4Vis)
 
 
 ## 👫 Contact
-For any question, please file an issue or contact [Wenhao Wu](https://whwu95.github.io/).
+For any question, please file an issue.
