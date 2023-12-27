@@ -192,6 +192,7 @@ ViT-L/14 | 16x224<sup>2</sup> | 32 x 8 = 256 | 29G |
 <a name="training"></a>
 ## 🚀 Training
 This implementation supports Multi-GPU `DistributedDataParallel` training, which is faster and simpler than `DataParallel` training. 
+*Note: The JSON file containing the attributes is already available at https://github.com/whwu95/BIKE/releases/tag/v1.0.*
 
 1. **Single Machine**: To train our model on Kinetics-400 with 8 GPUs in *Single Machine*, you can run:
 ```sh
