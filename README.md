@@ -163,28 +163,28 @@ ViT-L/14 | 16x224<sup>2</sup> | 32 x 8 = 256 | 29G |
 ### Untrimmed Video Recognition: ActivityNet
 | Architecture | Input | Views | Top-1 (%) |  mAP (%) | checkpoint | Train log| config|
 |:------------:|:-------------------:|:------------------:|:-----------------:|:--------------:|:--------------:|:--------------:|:--------------:|
-| ViT-L/14 | 16x224<sup>2</sup> | 4x1| 94.4 | 96.3| [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wenhao_wu_sydney_edu_au/EYeYGsBj62dJlfvvayEktOEB097t7ivqh5G5_oPTrVQ8yw?e=r3noko) | [log](exps/anet/ViT-L/14/f16/log.txt) | [config](configs/anet/anet_k400_finetune.yaml) |
-| ViT-L/14 | 16x336<sup>2</sup> | 4x1| 94.7 | 96.1 | [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wenhao_wu_sydney_edu_au/EYNFIPRePhRCiM9NG-F3vlwB5KW6mAn0N1OeXmH6zX83FQ?e=fyvBgF) | [log](exps/anet/ViT-L/14-336px/f16/log.txt) | [config](configs/anet/anet_k400_finetune_336.yaml) |
+| ViT-L/14 | 16x224<sup>2</sup> | 4x1| 94.4 | 96.3| [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wenhao_wu_sydney_edu_au/EYeYGsBj62dJlfvvayEktOEB097t7ivqh5G5_oPTrVQ8yw?e=lZS7qp) | [log](exps/anet/ViT-L/14/f16/log.txt) | [config](configs/anet/anet_k400_finetune.yaml) |
+| ViT-L/14 | 16x336<sup>2</sup> | 4x1| 94.7 | 96.1 | [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wenhao_wu_sydney_edu_au/EYNFIPRePhRCiM9NG-F3vlwB5KW6mAn0N1OeXmH6zX83FQ?e=z4h4W4) | [log](exps/anet/ViT-L/14-336px/f16/log.txt) | [config](configs/anet/anet_k400_finetune_336.yaml) |
 
 
 ### Multi-label Action Recognition: Charades
 | Architecture | Input | Views |  mAP (%) | checkpoint | Train log| config|
 |:------------:|:-------------------:|:------------------:|:-----------------:|:--------------:|:--------------:|:--------------:|
-| ViT-L/14 | 16x336<sup>2</sup> | 4x1| 50.7  | [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wenhao_wu_sydney_edu_au/ET_EYh0WdB1Oh-U9wXFa9gYBBp1yBCXHoCDBhLaaZ6NFiw?e=oA8xAG) | [log](exps/charades/ViT-L/14-336px/16f/log.txt) | [config](configs/charades/charades_k400_finetune_336.yaml) |
+| ViT-L/14 | 16x336<sup>2</sup> | 4x1| 50.7  | [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wenhao_wu_sydney_edu_au/ET_EYh0WdB1Oh-U9wXFa9gYBBp1yBCXHoCDBhLaaZ6NFiw?e=jeYhE8) | [log](exps/charades/ViT-L/14-336px/16f/log.txt) | [config](configs/charades/charades_k400_finetune_336.yaml) |
 
 
 
 ### UCF-101
 | Architecture | Input | Views |  Top-1 (%) | checkpoint | Train log| config|
 |:------------:|:-------------------:|:------------------:|:-----------------:|:--------------:|:--------------:|:--------------:|
-| ViT-L/14 | 16x224<sup>2</sup> | 1x1 | 98.7 | [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wenhao_wu_sydney_edu_au/EfpKsInxx3NGqqfd9pxOREYBtOZrS3OUIFRtaEeOouW3iQ?e=xIwS63) | [log](exps/ucf101/ViT-L/14/f16/log.txt) | [config](configs/ucf101/ucf_k400_finetune.yaml) |
-| ViT-L/14 | 16x336<sup>2</sup> | 1x1 | 98.9 | [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wenhao_wu_sydney_edu_au/EYIpb8NRQE9LmUV5c_IqVCABDBQrpmiJTBJg68kFqOEmQw?e=SxUlmD)| [log](exps/ucf101/ViT-L/14-336px/f16/log.txt) | [config](configs/ucf101/ucf_k400_finetune_336.yaml) |
+| ViT-L/14 | 16x224<sup>2</sup> | 1x1 | 98.7 | [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wenhao_wu_sydney_edu_au/EfpKsInxx3NGqqfd9pxOREYBtOZrS3OUIFRtaEeOouW3iQ?e=3kB2eb) | [log](exps/ucf101/ViT-L/14/f16/log.txt) | [config](configs/ucf101/ucf_k400_finetune.yaml) |
+| ViT-L/14 | 16x336<sup>2</sup> | 1x1 | 98.9 | [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wenhao_wu_sydney_edu_au/EYIpb8NRQE9LmUV5c_IqVCABDBQrpmiJTBJg68kFqOEmQw?e=IDKsje)| [log](exps/ucf101/ViT-L/14-336px/f16/log.txt) | [config](configs/ucf101/ucf_k400_finetune_336.yaml) |
 
 ### HMDB-51
 | Architecture | Input | Views |  Top-1 (%) | checkpoint | Train log| config|
 |:------------:|:-------------------:|:------------------:|:-----------------:|:--------------:|:--------------:|:--------------:|
-| ViT-L/14 | 16x224<sup>2</sup> | 1x1 | 82.9 | [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wenhao_wu_sydney_edu_au/EXDDyqmQNaVKoLTWrATJ-dUB8kAmA8ZCD-qN3jkXpO38gw?e=2SkFfX) | [log](exps/hmdb51/ViT-L/14/f16/log.txt) | [config](configs/hmdb51/hmdb_k400_finetune.yaml) |
-| ViT-L/14 | 16x336<sup>2</sup> | 1x1 | 84.3 | [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wenhao_wu_sydney_edu_au/EZyw6Ko2c3RPk7reUkpD-VwB_V4ujs8D5_JWGak0q2qREA?e=EawEFd)| [log](exps/hmdb51/ViT-L/14-336px/f16/log.txt) | [config](configs/hmdb51/hmdb_k400_finetune_336.yaml) |
+| ViT-L/14 | 16x224<sup>2</sup> | 1x1 | 82.9 | [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wenhao_wu_sydney_edu_au/EXDDyqmQNaVKoLTWrATJ-dUB8kAmA8ZCD-qN3jkXpO38gw?e=eZuqro) | [log](exps/hmdb51/ViT-L/14/f16/log.txt) | [config](configs/hmdb51/hmdb_k400_finetune.yaml) |
+| ViT-L/14 | 16x336<sup>2</sup> | 1x1 | 84.3 | [OneDrive](https://unisyd-my.sharepoint.com/:u:/g/personal/wenhao_wu_sydney_edu_au/EZyw6Ko2c3RPk7reUkpD-VwB_V4ujs8D5_JWGak0q2qREA?e=2PjrHZ)| [log](exps/hmdb51/ViT-L/14-336px/f16/log.txt) | [config](configs/hmdb51/hmdb_k400_finetune_336.yaml) |
 
 
 
